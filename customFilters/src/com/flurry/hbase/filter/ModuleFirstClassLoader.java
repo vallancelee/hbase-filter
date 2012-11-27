@@ -4,11 +4,14 @@ import java.net.*;
 import java.util.Arrays;
 import java.util.logging.Logger;
 
-public class ChildFirstClassLoader extends URLClassLoader
+/**
+ * Uses classes from external jars before going up the classLoader hierachy.
+ */
+public class ModuleFirstClassLoader extends URLClassLoader
 {
-	private static Logger LOG = Logger.getLogger(ChildFirstClassLoader.class.getName());
+	private static Logger LOG = Logger.getLogger(ModuleFirstClassLoader.class.getName());
 	
-	public ChildFirstClassLoader(URL[] urls)
+	public ModuleFirstClassLoader(URL[] urls)
 	{
 		super(urls);
 		LOG.info("Initialized with urls: " + Arrays.toString(urls));
