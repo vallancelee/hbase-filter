@@ -12,6 +12,7 @@ import org.apache.hadoop.hbase.filter.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.flurry.hbase.filter.example.ExampleTable.ExampleRowKey;
+import com.flurry.hbase.filter.impl.AppFilter;
 
 public class ExampleQuery
 {	
