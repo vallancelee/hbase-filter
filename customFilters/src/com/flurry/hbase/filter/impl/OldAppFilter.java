@@ -1,4 +1,4 @@
-package com.flurry.hbase.filter.example;
+package com.flurry.hbase.filter.impl;
 
 import java.io.*;
 
