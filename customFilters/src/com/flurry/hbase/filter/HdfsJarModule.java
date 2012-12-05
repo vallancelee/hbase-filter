@@ -1,33 +1,48 @@
 package com.flurry.hbase.filter;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
+import java.io.*;
+import java.net.*;
 import java.util.logging.Logger;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
 /**
- * Manages and loads the classes from a jar located in HDFS.
+ * Manages and loads the classes from a jar located in HDFS. For the purposes of this example,
+ * only one jar is supported and the configured HDFS path is to the jar itself.
  */
 public class HdfsJarModule
 {	
 	private static final Logger LOG = Logger.getLogger(HdfsJarModule.class.getName());
 	
-	private String localModulePath = "/tmp/modules";
+	private static final Path DEFAULT_TMP_DIR = new Path("/tmp/modules");
+	
+	private Path localTmpDir;
 	private Path jarPath;
 	private long jarTimestamp;
+	private ClassLoader parentClassLoader;
 	private ClassLoader moduleClassLoader;
+	private File tmpLocal;
 
+	/**
+	 * @param jarPath The absolute HDFS path the jar
+	 */
+	public HdfsJarModule(Path jarPath, ClassLoader parentClassLoader)
+	{
+		this(jarPath, DEFAULT_TMP_DIR, parentClassLoader);
+	}
 
-	public HdfsJarModule(Path jarPath)
+	/**
+	 * @param jarPath The absolute HDFS path the jar
+	 * @param localDir local directory for storing the jars downloaded from HDFS
+	 */
+	public HdfsJarModule(Path jarPath, Path localDir, ClassLoader parentClassLoader)
 	{
 		this.jarPath = jarPath;
+		this.localTmpDir = localDir;
+		this.parentClassLoader = parentClassLoader;
 	}
 	
 	public Class<?> getClass(String className) throws IOException, ClassNotFoundException
@@ -44,26 +59,24 @@ public class HdfsJarModule
 		if (moduleClassLoader instanceof URLClassLoader)
 		{
 			/* 
-			 * In Java 7, use moduleClassLoader.close() to release the jars 
+			 * In Java 7, use ((URLClassLoader) moduleClassLoader).close() to release the jars 
 			 * otherwise, things get a little more involved -- see 
 			 * http://loracular.blogspot.com/2009/12/dynamic-class-loader-with.html
 			 */
 		}
 		moduleClassLoader = null;
-
-		// delete the tmp file
 	}
 
 	/**
-	 * If the module has not been loaded, or if it has been modified since it was las
+	 * If the module has not been loaded, or if it has been modified since it was last
 	 * loaded, copy the jar from HDFS to a local directory. Use the local copy for loading classes.
 	 */
 	private void loadModule() throws IOException
 	{
 		if (jarPath == null)
 		{
-			// undefined path, use the regular classLoader
-			moduleClassLoader = getClass().getClassLoader();
+			// undefined path, use the parent classLoader
+			moduleClassLoader = parentClassLoader;
 			return;
 		}
 		
@@ -74,18 +87,17 @@ public class HdfsJarModule
 		
 		boolean shouldInitialize = moduleClassLoader == null || modificationTime > jarTimestamp;
 		
-		LOG.info("shouldInitialize? " + shouldInitialize);
+		LOG.info("should initialize? " + shouldInitialize);
 		if (shouldInitialize)
-		{
-			// use the hbase local tmp dir if it is defined
-			localModulePath = config.get("java.io.tmpdir", localModulePath);
-			Path localPath = new Path(localModulePath, System.currentTimeMillis() + "_" + jarPath.getName());
+		{		
+			Path localPath = new Path(localTmpDir, System.currentTimeMillis() + "_" + jarPath.getName());
 			fs.copyToLocalFile(jarPath, localPath);
 			
-			LOG.info("Copied jar at " + jarPath + " to " + localPath);
-			
-			File tmpLocal = new File(localPath.toString(), "example.jar");
+			tmpLocal = new File(localPath.toString());
 			tmpLocal.deleteOnExit();
+			
+			// unload the previous module
+			unloadModule();
 			
 			final URL url = tmpLocal.toURI().toURL();
 			
@@ -94,7 +106,7 @@ public class HdfsJarModule
 				@Override
 				public String run()
 				{
-					moduleClassLoader = new ModuleFirstClassLoader(new URL[] { url });
+					moduleClassLoader = new ModuleFirstClassLoader(new URL[] { url }, parentClassLoader);
 					jarTimestamp = modificationTime;
 					return null;
 				}

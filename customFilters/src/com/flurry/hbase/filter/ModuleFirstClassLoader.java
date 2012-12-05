@@ -5,15 +5,15 @@ import java.util.Arrays;
 import java.util.logging.Logger;
 
 /**
- * Uses classes from external jars before going up the classLoader hierachy.
+ * Uses classes from external jars before going up the classLoader hierarchy.
  */
 public class ModuleFirstClassLoader extends URLClassLoader
 {
 	private static Logger LOG = Logger.getLogger(ModuleFirstClassLoader.class.getName());
 	
-	public ModuleFirstClassLoader(URL[] urls)
+	public ModuleFirstClassLoader(URL[] urls, ClassLoader parent)
 	{
-		super(urls);
+		super(urls, parent);
 		LOG.info("Initialized with urls: " + Arrays.toString(urls));
 	}
 

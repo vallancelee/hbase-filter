@@ -1,17 +1,21 @@
 package com.flurry.hbase.filter.example;
 
-import java.io.*;
-import java.util.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.*;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
 
 public class ExampleTable
 {
-	private static final String tableName = "exampleTable";
+	public static final String tableName = "applicationEvents";
 	public static final String COLUMN_FAMILY = "v";
 	public static final byte[] COLUMN_FAMILY_BYTES = COLUMN_FAMILY.getBytes();
 	public static final byte[] COLUMN_QUALIFIER = new byte[] {0};
@@ -19,7 +23,7 @@ public class ExampleTable
 	
 	public static HTable getTable() throws Exception
 	{
-		return new HTable(config, tableName.getBytes());
+		return new HTable(config, Bytes.toBytes(tableName));
 	}
 	
 	public static void createTable() throws Exception
@@ -32,32 +36,6 @@ public class ExampleTable
 		descriptor.addFamily(colFam);
 		
 		admin.createTable(descriptor);
-	}
-	
-	public static void generateData() throws Exception
-	{	
-		int numRows = 1000;
-		long current = System.currentTimeMillis();
-		List<Put> puts = new ArrayList<Put>();
-		for (int i = 0; i < numRows; i++)
-		{
-			long randAppId = (long) (Math.random() * 100) + 1; // between 1 to 100
-			long randVersionId = (long) (Math.random() * 100) + 101; // 101 to 200
-			long randTs = (long) (Math.random() * current); // epoch 0 to now
-			long randValue = (long) (Math.random() * current) * 1000; // 0 to 999
-			
-			ExampleRowKey rowKey = new ExampleRowKey(randAppId, randVersionId, randTs);
-			ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-			DataOutputStream out = new DataOutputStream(byteStream);
-			rowKey.write(out);
-			
-			byte[] rowKeyBytes = byteStream.toByteArray();
-			Put put = new Put(rowKeyBytes);
-			put.add(COLUMN_FAMILY_BYTES, COLUMN_QUALIFIER, Bytes.toBytes(randValue));
-			puts.add(put);
-		}
-		getTable().put(puts);
-		getTable().flushCommits();
 	}
 	
 	public static class ExampleRowKey implements Writable
@@ -107,6 +85,6 @@ public class ExampleTable
 	
 	public static void main(String[] args) throws Exception
 	{
-		ExampleTable.generateData();
+		ExampleTable.createTable();
 	}
 }
